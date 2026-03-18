@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Messenger</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; overflow: hidden; }
+
+        /* Переключатель языка */
+        .lang-switcher { position: fixed; top: 15px; right: 15px; z-index: 1000; display: flex; gap: 5px; }
+        .lang-btn { padding: 8px 12px; border: none; border-radius: 8px; background: rgba(255,255,255,0.3); color: white; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .lang-btn:hover, .lang-btn.active { background: white; color: #667eea; }
+
+        /* Экран авторизации */
+        #auth-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 100; }
+        .auth-container { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 400px; }
+        .auth-container h1 { text-align: center; margin-bottom: 10px; color: #333; font-size: 28px; }
+        .auth-container p { text-align: center; color: #666; margin-bottom: 30px; }
+        
+        .auth-tabs { display: flex; gap: 10px; margin-bottom: 25px; }
+        .auth-tab { flex: 1; padding: 12px; border: none; background: #f0f0f0; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .auth-tab.active { background: #667eea; color: white; }
+        
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; margin-bottom: 8px; color: #555; font-weight: 500; }
+        .input-group input { width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 15px; transition: 0.3s; }
+        .input-group input:focus { outline: none; border-color: #667eea; }
+        
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        
+        .error-msg { color: #e74c3c; font-size: 14px; margin-top: 15px; text-align: center; display: none; }
+        .loading { text-align: center; color: #667eea; display: none; margin-top: 15px; }
+
+        /* Экран чата */
+        #chat-screen { display: none; height: 100vh; flex-direction: column; }
+        .chat-header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .chat-header h2 { color: #333; font-size: 20px; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .logout-btn { background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        
+        .chat-container { flex: 1; display: flex; overflow: hidden; }
+        .sidebar { width: 300px; background: #f8f9fa; border-right: 1px solid #e0e0e0; display: none; overflow-y: auto; }
+        .sidebar.show { display: block; }
+        .chat-list-item { padding: 15px 20px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: 0.2s; }
+        .chat-list-item:hover, .chat-list-item.active { background: #e3f2fd; }
+        .chat-list-item h4 { color: #333; margin-bottom: 5px; }        .chat-list-item p { color: #888; font-size: 13px; }
+        
+        .main-chat { flex: 1; display: flex; flex-direction: column; background: #e5ddd5; }
+        .chat-title { padding: 15px 20px; background: white; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; }
+        
+        .messages-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 75%; padding: 12px 16px; border-radius: 18px; font-size: 15px; word-wrap: break-word; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.received { align-self: flex-start; background: white; border-bottom-left-radius: 5px; }
+        .message.sent { align-self: flex-end; background: #dcf8c6; border-bottom-right-radius: 5px; }
+        .msg-user { font-size: 12px; color: #667eea; font-weight: bold; margin-bottom: 4px; }
+        .msg-time { font-size: 11px; color: #999; text-align: right; margin-top: 5px; }
+        
+        .message-input { padding: 15px; background: white; display: flex; gap: 10px; align-items: center; }
+        .message-input input { flex: 1; padding: 14px 20px; border: 2px solid #e0e0e0; border-radius: 25px; font-size: 15px; outline: none; transition: 0.3s; }
+        .message-input input:focus { border-color: #667eea; }
+        .send-btn { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; font-size: 20px; cursor: pointer; transition: 0.3s; }
+        .send-btn:hover { transform: scale(1.1); }
+        
+        .menu-toggle { background: none; border: none; font-size: 24px; cursor: pointer; color: #333; display: block; }
+        
+        @media (min-width: 768px) { .sidebar { display: block !important; } .menu-toggle { display: none; } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Переключатель языка -->
+    <div class="lang-switcher">
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('zh')">中文</button>
+    </div>
+
+    <!-- Экран авторизации -->
+    <div id="auth-screen">
+        <div class="auth-container">
+            <h1 id="app-title">💬 Messenger</h1>
+            <p id="app-subtitle">Connect with friends</p>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchTab('login')" id="tab-login">Login</button>
+                <button class="auth-tab" onclick="switchTab('register')" id="tab-register">Register</button>
+            </div>
+            
+            <!-- Форма входа -->
+            <div id="login-form">
+                <div class="input-group">
+                    <label id="label-email">Email</label>                    <input type="email" id="login-email" placeholder="your@email.com">
+                </div>
+                <div class="input-group">
+                    <label id="label-password">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••">
+                </div>
+                <button class="btn btn-primary" onclick="login()" id="btn-login">Login</button>
+            </div>
+            
+            <!-- Форма регистрации -->
+            <div id="register-form" class="hidden">
+                <div class="input-group">
+                    <label id="label-username">Username</label>
+                    <input type="text" id="reg-username" placeholder="John Doe">
+                </div>
+                <div class="input-group">
+                    <label id="label-reg-email">Email</label>
+                    <input type="email" id="reg-email" placeholder="your@email.com">
+                </div>
+                <div class="input-group">
+                    <label id="label-reg-password">Password</label>
+                    <input type="password" id="reg-password" placeholder="Min 6 characters">
+                </div>
+                <button class="btn btn-primary" onclick="register()" id="btn-register">Create Account</button>
+            </div>
+            
+            <div class="error-msg" id="error-msg"></div>
+            <div class="loading" id="loading">⏳ Loading...</div>
+        </div>
+    </div>
+
+    <!-- Экран чата -->
+    <div id="chat-screen">
+        <div class="chat-header">
+            <div class="user-info">
+                <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+                <h2 id="chat-app-title">Messenger</h2>
+            </div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span id="user-display" style="color: #666; font-weight: 500;"></span>
+                <button class="logout-btn" onclick="logout()" id="btn-logout">Logout</button>
+            </div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="sidebar" id="sidebar">
+                <div class="chat-list-item active" onclick="selectChat('General Chat', '#667eea')">
+                    <h4>💬 <span data-key="generalChat">General Chat</span></h4>
+                    <p data-key="allUsers">All users</p>
+                </div>            </div>
+            
+            <div class="main-chat">
+                <div class="chat-title">
+                    <div class="avatar" id="chat-avatar">💬</div>
+                    <div>
+                        <h3 id="current-chat-name" data-key="generalChat">General Chat</h3>
+                        <span style="color: #4CAF50; font-size: 13px;">● <span data-key="online">Online</span></span>
+                    </div>
+                </div>
+                
+                <div class="messages-box" id="messages-box"></div>
+                
+                <div class="message-input">
+                    <input type="text" id="message-input" placeholder="Type a message..." onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button class="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <script>
+        // ============================================
+        // 🔥 ВСТАВЬ СЮДА СВОЙ FIREBASE CONFIG
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+        // ============================================
+
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        const messagesRef = db.ref('messages');
+
+        // Переводы
+        const translations = {
+            en: {                appTitle: "💬 Messenger",
+                appSubtitle: "Connect with friends",
+                login: "Login",
+                register: "Register",
+                email: "Email",
+                password: "Password",
+                username: "Username",
+                minPassword: "Min 6 characters",
+                btnLogin: "Login",
+                btnRegister: "Create Account",
+                logout: "Logout",
+                generalChat: "General Chat",
+                allUsers: "All users",
+                online: "Online",
+                typeMessage: "Type a message...",
+                error: {
+                    required: "All fields are required",
+                    invalidEmail: "Invalid email address",
+                    weakPassword: "Password should be at least 6 characters",
+                    userNotFound: "User not found",
+                    wrongPassword: "Wrong password",
+                    emailInUse: "Email is already in use",
+                    networkError: "Network error. Check your connection"
+                }
+            },
+            ru: {
+                appTitle: "💬 Мессенджер",
+                appSubtitle: "Общайся с друзьями",
+                login: "Вход",
+                register: "Регистрация",
+                email: "Email",
+                password: "Пароль",
+                username: "Имя пользователя",
+                minPassword: "Минимум 6 символов",
+                btnLogin: "Войти",
+                btnRegister: "Создать аккаунт",
+                logout: "Выйти",
+                generalChat: "Общий чат",
+                allUsers: "Все пользователи",
+                online: "Онлайн",
+                typeMessage: "Введите сообщение...",
+                error: {
+                    required: "Все поля обязательны",
+                    invalidEmail: "Неверный email",
+                    weakPassword: "Пароль должен быть не менее 6 символов",
+                    userNotFound: "Пользователь не найден",
+                    wrongPassword: "Неверный пароль",
+                    emailInUse: "Email уже зарегистрирован",
+                    networkError: "Ошибка сети. Проверьте подключение"
+                }            },
+            zh: {
+                appTitle: "💬 即时通讯",
+                appSubtitle: "与朋友保持联系",
+                login: "登录",
+                register: "注册",
+                email: "电子邮箱",
+                password: "密码",
+                username: "用户名",
+                minPassword: "至少6个字符",
+                btnLogin: "登录",
+                btnRegister: "创建账户",
+                logout: "退出",
+                generalChat: "群聊",
+                allUsers: "所有用户",
+                online: "在线",
+                typeMessage: "输入消息...",
+                error: {
+                    required: "所有字段均为必填",
+                    invalidEmail: "无效的电子邮件地址",
+                    weakPassword: "密码至少应为6个字符",
+                    userNotFound: "用户不存在",
+                    wrongPassword: "密码错误",
+                    emailInUse: "该邮箱已被注册",
+                    networkError: "网络错误，请检查连接"
+                }
+            }
+        };
+
+        let currentLang = 'ru';
+        let currentUser = null;
+        let currentChat = 'General Chat';
+
+        // Установка языка
+        function setLang(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            updateTexts();
+        }
+
+        // Обновление текстов
+        function updateTexts() {
+            const t = translations[currentLang];
+            document.getElementById('app-title').textContent = t.appTitle;
+            document.getElementById('app-subtitle').textContent = t.appSubtitle;
+            document.getElementById('tab-login').textContent = t.login;
+            document.getElementById('tab-register').textContent = t.register;
+            document.getElementById('label-email').textContent = t.email;
+            document.getElementById('label-password').textContent = t.password;            document.getElementById('label-username').textContent = t.username;
+            document.getElementById('label-reg-email').textContent = t.email;
+            document.getElementById('label-reg-password').textContent = t.password;
+            document.getElementById('btn-login').textContent = t.btnLogin;
+            document.getElementById('btn-register').textContent = t.btnRegister;
+            document.getElementById('btn-logout').textContent = t.logout;
+            document.getElementById('chat-app-title').textContent = t.appTitle.replace('💬 ', '');
+            document.getElementById('message-input').placeholder = t.typeMessage;
+            document.getElementById('login-password').placeholder = '••••••••';
+            document.getElementById('reg-password').placeholder = t.minPassword;
+            
+            document.querySelectorAll('[data-key="generalChat"]').forEach(el => el.textContent = t.generalChat);
+            document.querySelectorAll('[data-key="allUsers"]').forEach(el => el.textContent = t.allUsers);
+            document.querySelectorAll('[data-key="online"]').forEach(el => el.textContent = t.online);
+        }
+
+        // Переключение вкладок
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if (tab === 'login') {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+            } else {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+            }
+            hideError();
+        }
+
+        // Показать ошибку
+        function showError(msg) {
+            const errorEl = document.getElementById('error-msg');
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function hideError() {
+            document.getElementById('error-msg').style.display = 'none';
+        }
+
+        // Регистрация
+        async function register() {
+            hideError();
+            const username = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+                        const t = translations[currentLang].error;
+            
+            if (!username || !email || !password) {
+                showError(t.required);
+                return;
+            }
+            
+            if (password.length < 6) {
+                showError(t.weakPassword);
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.updateProfile({ displayName: username });
+                
+                // Сохраняем имя пользователя в базу
+                await db.ref('users/' + userCredential.user.uid).set({
+                    username: username,
+                    email: email,
+                    createdAt: Date.now()
+                });
+                
+                currentUser = userCredential.user;
+                showChat();
+            } catch (error) {
+                let errorMsg = t.networkError;
+                if (error.code === 'auth/email-already-in-use') errorMsg = t.emailInUse;
+                if (error.code === 'auth/invalid-email') errorMsg = t.invalidEmail;
+                showError(errorMsg);
+            }
+        }
+
+        // Вход
+        async function login() {
+            hideError();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            
+            const t = translations[currentLang].error;
+            
+            if (!email || !password) {
+                showError(t.required);
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+                        try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                currentUser = userCredential.user;
+                showChat();
+            } catch (error) {
+                let errorMsg = t.networkError;
+                if (error.code === 'auth/user-not-found') errorMsg = t.userNotFound;
+                if (error.code === 'auth/wrong-password') errorMsg = t.wrongPassword;
+                if (error.code === 'auth/invalid-email') errorMsg = t.invalidEmail;
+                showError(errorMsg);
+            }
+        }
+
+        // Выход
+        function logout() {
+            auth.signOut();
+            location.reload();
+        }
+
+        // Показать чат
+        function showChat() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('chat-screen').classList.remove('hidden');
+            document.getElementById('chat-screen').style.display = 'flex';
+            document.getElementById('user-display').textContent = currentUser.displayName || currentUser.email;
+            loadMessages();
+        }
+
+        // Меню
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('show');
+        }
+
+        // Выбор чата
+        function selectChat(name, color) {
+            currentChat = name;
+            document.getElementById('current-chat-name').textContent = name;
+            document.getElementById('chat-avatar').textContent = name[0];
+            document.getElementById('chat-avatar').style.background = color;
+            document.getElementById('messages-box').innerHTML = '';
+            loadMessages();
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.remove('show');
+            }
+        }
+
+        // Отправка сообщения
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();            if (!text || !currentUser) return;
+            
+            messagesRef.push({
+                chat: currentChat,
+                userId: currentUser.uid,
+                username: currentUser.displayName || currentUser.email,
+                text: text,
+                time: new Date().toISOString()
+            });
+            
+            input.value = '';
+        }
+
+        // Загрузка сообщений
+        function loadMessages() {
+            messagesRef.orderByChild('time').on('value', (snapshot) => {
+                const box = document.getElementById('messages-box');
+                box.innerHTML = '';
+                
+                snapshot.forEach((child) => {
+                    const msg = child.val();
+                    if (msg.chat === currentChat) {
+                        const time = new Date(msg.time).toLocaleTimeString(currentLang, {hour:'2-digit', minute:'2-digit'});
+                        const isOwn = msg.userId === currentUser.uid;
+                        const type = isOwn ? 'sent' : 'received';
+                        
+                        const div = document.createElement('div');
+                        div.className = 'message ' + type;
+                        div.innerHTML = `
+                            ${!isOwn ? '<div class="msg-user">' + msg.username + '</div>' : ''}
+                            ${msg.text}
+                            <div class="msg-time">${time}</div>
+                        `;
+                        box.appendChild(div);
+                    }
+                });
+                
+                box.scrollTop = box.scrollHeight;
+            });
+        }
+
+        // Проверка авторизации при загрузке
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                showChat();
+            }
+        });
+
+        // Инициализация        updateTexts();
+    </script>
+</body>
+</html>
